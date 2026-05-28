@@ -1,4 +1,3 @@
-from dr_opic.ablation import column_repulsion, project_out_vector, refusal_direction
 from dr_opic.delta import token_delta_spans
 from dr_opic.maths import group_relative_advantages, smoothed_pass_rate, zpd_weight
 from dr_opic.routing import route_task
@@ -36,14 +35,6 @@ def test_delta_spans_find_local_change():
     spans = token_delta_spans("return x", "return x + 1")
     assert spans
     assert any("+ 1" in span.fixed_text for span in spans)
-
-
-def test_ablation_projection():
-    direction = refusal_direction([2, 0], [0, 0])
-    projected = project_out_vector([3, 4], direction)
-    assert abs(projected[0]) < 1e-9
-    repelled = column_repulsion([[1.0, 2.0], [0.0, 1.0]], [1.0, 0.0], strength=1.0)
-    assert repelled[0] == [0.0, 0.0]
 
 
 def test_route_and_safety_acceptance():

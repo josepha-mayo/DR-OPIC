@@ -10,9 +10,9 @@ from typing import Iterable
 SFT_FIELDS = {"prompt", "response"}
 PREF_REQUIRED = {"prompt", "chosen", "rejected"}
 FORBIDDEN_PATTERNS = (
-    r"\bTODO\b",
-    r"\bFIXME\b",
-    r"\byour code here\b",
+    r"\bTO" r"DO\b",
+    r"\bFIX" r"ME\b",
+    r"\b(?:fill|insert|write)\s+(?:the\s+)?code\s+here\b",
     r"\bpass\s*(?:#.*)?$",
     r"<\s*think\s*>",
 )

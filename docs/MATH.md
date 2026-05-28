@@ -174,14 +174,3 @@ repair@1 = tasks fixed by one repair after K failures / tasks
 ```
 
 Do not rely on the IID `1 - (1 - p)^K` formula except as intuition.
-
-## Repulsion Orthogonalization
-
-For directional behavior editing, with normalized direction `v` and weight `W`:
-
-```text
-W' = W - strength * outer(v, v^T W)
-```
-
-This is a column-space projection/repulsion helper. It should be treated as a
-research utility and evaluated with safety and retention gates.
