@@ -1,0 +1,6 @@
+{
+  "prompt": "Implement reverse_words(s) returning words in reverse order.",
+  "entrypoint": "reverse_words",
+  "tests": "assert reverse_words('one two three') == 'three two one'\nassert reverse_words('solo') == 'solo'",
+  "task_id": "reverse_words_demo"
+}

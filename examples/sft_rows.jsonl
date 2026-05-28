@@ -1,0 +1,2 @@
+{"prompt":"Fix the Python function so it returns the words in reverse order while preserving one space between output words.","response":"def reverse_words(s):\n    return ' '.join(reversed(s.split()))\n"}
+{"prompt":"Implement a parser that returns all non-empty semicolon-separated integers from a string.","response":"def parse_ints(text):\n    if not text:\n        return []\n    out = []\n    for part in text.split(';'):\n        if part:\n            out.append(int(part))\n    return out\n"}
