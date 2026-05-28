@@ -1,5 +1,6 @@
 """DR-OPIC: verifier-grounded SLM forge utilities."""
 
+from .artifacts import dumps_json, write_json, write_jsonl
 from .maths import (
     RewardWeights,
     group_relative_advantages,
@@ -21,10 +22,13 @@ __all__ = [
     "Task",
     "VerificationResult",
     "classify_coding_safety",
+    "dumps_json",
     "group_relative_advantages",
     "route_task",
     "selective_accept",
     "smoothed_pass_rate",
     "verify_python",
+    "write_json",
+    "write_jsonl",
     "zpd_weight",
 ]

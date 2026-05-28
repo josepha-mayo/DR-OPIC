@@ -11,6 +11,7 @@ build/
 artifacts/
 checkpoints/
 outputs/
+outputs_tmp/
 *.safetensors
 *.bin
 *.gguf

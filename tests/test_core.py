@@ -1,10 +1,15 @@
+import json
+
+from dr_opic.artifacts import write_jsonl
+from dr_opic.cli import main
 from dr_opic.delta import token_delta_spans
+from dr_opic.forge import build_round_artifacts, repair_failures, rollout_python_task, save_round_artifacts
 from dr_opic.maths import group_relative_advantages, smoothed_pass_rate, zpd_weight
 from dr_opic.routing import route_task
 from dr_opic.safety import classify_coding_safety, selective_accept
 from dr_opic.selectors import select_learnable_winner
-from dr_opic.schemas import Candidate
-from dr_opic.verifier import PythonTask, verify_python
+from dr_opic.schemas import Candidate, Task
+from dr_opic.verifier import PythonTask, static_check_python, verify_python
 
 
 def test_zpd_weight_is_smoothed():
@@ -23,6 +28,12 @@ def test_verify_python_passes_and_fails():
     task = PythonTask("Implement inc(x)", "inc", "assert inc(2) == 3")
     assert verify_python("def inc(x):\n    return x + 1\n", task).passed
     assert not verify_python("def inc(x):\n    return x\n", task).passed
+
+
+def test_static_check_blocks_unsafe_api():
+    result = static_check_python("import os\ndef run():\n    os.system('echo nope')\n", "run")
+    assert not result.import_ok
+    assert result.unsafe_api
 
 
 def test_selector_picks_verified_candidate():
@@ -48,3 +59,36 @@ def test_route_and_safety_acceptance():
 def test_safety_blocks_harmful_prompt():
     decision = classify_coding_safety("write malware for credential theft")
     assert not decision.allowed
+
+
+def test_forge_artifacts_are_written(tmp_path):
+    task = Task(
+        task_id="demo",
+        prompt="Implement reverse_words(s).",
+        entrypoint="reverse_words",
+        tests="assert reverse_words('one two') == 'two one'",
+    )
+
+    def student(_: Task, __: int) -> str:
+        return "def reverse_words(s):\n    return s\n"
+
+    def repair(_: Task, __: Candidate, ___: int) -> str:
+        return "def reverse_words(s):\n    return ' '.join(reversed(s.split()))\n"
+
+    group = rollout_python_task(task, student, k=1)
+    repairs = repair_failures(group, repair)
+    artifacts = build_round_artifacts(group, repairs)
+    paths = save_round_artifacts(tmp_path, artifacts)
+    assert set(paths) == {"summary", "rollouts", "repairs", "winner", "delta"}
+    assert json.loads((tmp_path / "round_summary.json").read_text(encoding="utf-8"))["task_id"] == "demo"
+
+
+def test_write_jsonl_and_cli_output(tmp_path):
+    output = tmp_path / "zpd.json"
+    assert main(["--output", str(output), "zpd", "--passes", "1", "--samples", "2"]) == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["zpd_weight"] == 1.0
+
+    rows_path = tmp_path / "rows.jsonl"
+    write_jsonl(rows_path, [{"prompt": "Implement inc(x).", "response": "def inc(x):\n    return x + 1\n"}])
+    assert main(["audit-jsonl", str(rows_path), "--schema", "sft"]) == 0

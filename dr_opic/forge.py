@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Sequence
+from pathlib import Path
 
+from .artifacts import write_json, write_jsonl
 from .delta import delta_training_record
 from .maths import group_relative_advantages, zpd_weight
 from .schemas import Candidate, RolloutGroup, Task
@@ -26,6 +28,8 @@ def repair_prompt(task: Task, failed_code: str, observation: str) -> str:
 
 
 def rollout_python_task(task: Task, generator: Generator, k: int = 4) -> RolloutGroup:
+    if k <= 0:
+        raise ValueError("k must be positive")
     if not task.entrypoint or not task.tests:
         raise ValueError("python rollout requires entrypoint and tests")
     py_task = PythonTask(task.prompt, task.entrypoint, task.tests, task_id=task.task_id)
@@ -50,6 +54,8 @@ def rollout_python_task(task: Task, generator: Generator, k: int = 4) -> Rollout
 
 
 def repair_failures(group: RolloutGroup, repairer: Repairer, rounds: int = 1) -> list[Candidate]:
+    if rounds < 0:
+        raise ValueError("rounds must be non-negative")
     repaired: list[Candidate] = []
     if not group.task.entrypoint or not group.task.tests:
         return repaired
@@ -90,9 +96,9 @@ def build_round_artifacts(group: RolloutGroup, repaired: Sequence[Candidate] = (
         "samples": group.samples,
         "zpd_weight": zpd,
         "advantages": group_relative_advantages(rewards),
-        "winner": winner.__dict__ if winner else None,
-        "rollouts": [c.__dict__ for c in group.candidates],
-        "repairs": [c.__dict__ for c in repaired],
+        "winner": winner.to_dict() if winner else None,
+        "rollouts": [c.to_dict() for c in group.candidates],
+        "repairs": [c.to_dict() for c in repaired],
     }
     if winner:
         failed = _nearest_failure(group)
@@ -103,3 +109,19 @@ def build_round_artifacts(group: RolloutGroup, repaired: Sequence[Candidate] = (
 def _nearest_failure(group: RolloutGroup) -> Candidate:
     failures = [c for c in group.candidates if not c.passed]
     return failures[0] if failures else group.candidates[0]
+
+
+def save_round_artifacts(directory: str | Path, artifacts: dict) -> dict[str, str]:
+    """Write a round artifact bundle in predictable file names."""
+
+    root = Path(directory)
+    paths = {
+        "summary": write_json(root / "round_summary.json", artifacts),
+        "rollouts": write_jsonl(root / "student_rollouts.jsonl", artifacts.get("rollouts", [])),
+        "repairs": write_jsonl(root / "verified_repairs.jsonl", artifacts.get("repairs", [])),
+    }
+    if artifacts.get("winner"):
+        paths["winner"] = write_json(root / "learnable_winner.json", artifacts["winner"])
+    if artifacts.get("delta"):
+        paths["delta"] = write_json(root / "delta_spans.json", artifacts["delta"])
+    return {name: str(path) for name, path in paths.items()}

@@ -30,6 +30,12 @@ The output contains:
 - selected `winner`
 - local `delta` spans from failed code to fixed code
 
+Write the same output to artifact files:
+
+```bash
+python -m dr_opic.cli --output outputs\demo forge-demo
+```
+
 ## 4. Verify A Candidate
 
 ```bash
@@ -40,6 +46,12 @@ Try the failing version:
 
 ```bash
 python -m dr_opic.cli verify-python examples/python_task.json --code examples/reverse_words_bad.py
+```
+
+Return a failing process exit code when verification fails:
+
+```bash
+python -m dr_opic.cli verify-python examples/python_task.json --code examples/reverse_words_bad.py --fail-on-error
 ```
 
 ## 5. Audit External Rows

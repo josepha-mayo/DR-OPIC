@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import os
 import re
 import subprocess
 import sys
@@ -20,6 +21,7 @@ UNSAFE_PATTERNS = (
     r"\bopen\s*\([^)]*['\"]w",
     r"\bsocket\.",
 )
+MAX_CODE_BYTES = 128_000
 
 
 @dataclass(frozen=True)
@@ -30,6 +32,19 @@ class PythonTask:
     task_id: str = "task"
     timeout_s: float = 5.0
     allow_unsafe: bool = False
+    max_code_bytes: int = MAX_CODE_BYTES
+
+    def __post_init__(self) -> None:
+        if not self.prompt.strip():
+            raise ValueError("prompt is required")
+        if not self.entrypoint.strip():
+            raise ValueError("entrypoint is required")
+        if not self.tests.strip():
+            raise ValueError("tests are required")
+        if self.timeout_s <= 0:
+            raise ValueError("timeout_s must be positive")
+        if self.max_code_bytes <= 0:
+            raise ValueError("max_code_bytes must be positive")
 
 
 @dataclass(frozen=True)
@@ -101,6 +116,8 @@ def verify_python(response: str, task: PythonTask, python: str | None = None) ->
     static = static_check_python(code, task.entrypoint, allow_unsafe=task.allow_unsafe)
     if not static.syntax_ok or not static.import_ok or static.invalid_format or static.repeated_token:
         return static
+    if len(code.encode("utf-8")) > task.max_code_bytes:
+        return VerificationResult(False, verifier_reward(final_pass=False, syntax_ok=True, import_ok=True, invalid_format=True), "code_too_large", True, True, invalid_format=True)
 
     script = code + "\n\n" + task.tests + "\n"
     exe = python or sys.executable
@@ -114,6 +131,7 @@ def verify_python(response: str, task: PythonTask, python: str | None = None) ->
                 text=True,
                 capture_output=True,
                 timeout=task.timeout_s,
+                env=_minimal_env(),
             )
         except subprocess.TimeoutExpired:
             return VerificationResult(False, verifier_reward(final_pass=False, syntax_ok=True, import_ok=True), "TimeoutExpired", True, True)
@@ -122,3 +140,14 @@ def verify_python(response: str, task: PythonTask, python: str | None = None) ->
         return VerificationResult(True, verifier_reward(final_pass=True, public_fraction=1.0, syntax_ok=True, import_ok=True), "passed", True, True, public_fraction=1.0)
     obs = (proc.stderr or proc.stdout or "failed").strip()
     return VerificationResult(False, verifier_reward(final_pass=False, public_fraction=0.0, syntax_ok=True, import_ok=True), obs[:4000], True, True)
+
+
+def _minimal_env() -> dict[str, str]:
+    env = {
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1",
+    }
+    for key in ("SystemRoot", "WINDIR", "PATH", "TEMP", "TMP"):
+        if key in os.environ:
+            env[key] = os.environ[key]
+    return env

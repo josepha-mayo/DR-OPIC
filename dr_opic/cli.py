@@ -4,15 +4,20 @@ import argparse
 import json
 from pathlib import Path
 
+from .artifacts import dumps_json, write_json
+from .compression import estimate_dense_model
 from .datasets import audit_rows, read_jsonl
-from .forge import build_round_artifacts, repair_failures, rollout_python_task
+from .forge import build_round_artifacts, repair_failures, rollout_python_task, save_round_artifacts
 from .maths import smoothed_pass_rate, zpd_weight
+from .routing import route_task
+from .safety import classify_coding_safety, selective_accept
 from .schemas import Task
 from .verifier import PythonTask, verify_python
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="dr-opic")
+    parser.add_argument("--output", help="write JSON output to this file or directory, depending on command")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_zpd = sub.add_parser("zpd", help="compute smoothed pass rate and ZPD weight")
@@ -26,31 +31,49 @@ def main(argv: list[str] | None = None) -> int:
     p_verify = sub.add_parser("verify-python", help="verify candidate code for a JSON task")
     p_verify.add_argument("task_json")
     p_verify.add_argument("--code")
+    p_verify.add_argument("--fail-on-error", action="store_true", help="return exit code 1 when verification fails")
 
     sub.add_parser("forge-demo", help="run a tiny student-first forge loop")
 
+    p_route = sub.add_parser("route", help="route and safety-check one prompt")
+    p_route.add_argument("prompt")
+
+    p_estimate = sub.add_parser("estimate-model", help="estimate dense model memory and flops")
+    p_estimate.add_argument("--params", type=float, required=True, help="parameter count, e.g. 3.09e9")
+
     args = parser.parse_args(argv)
     if args.cmd == "zpd":
-        print(json.dumps({"p_tilde": smoothed_pass_rate(args.passes, args.samples), "zpd_weight": zpd_weight(args.passes, args.samples)}, indent=2))
-        return 0
+        return _emit({"p_tilde": smoothed_pass_rate(args.passes, args.samples), "zpd_weight": zpd_weight(args.passes, args.samples)}, args.output)
     if args.cmd == "audit-jsonl":
         rows = read_jsonl(args.path)
-        print(json.dumps(audit_rows(rows, args.schema), indent=2))
-        return 0
+        return _emit(audit_rows(rows, args.schema), args.output)
     if args.cmd == "verify-python":
         payload = json.loads(Path(args.task_json).read_text(encoding="utf-8"))
-        task = PythonTask(**payload)
+        task = _python_task_from_payload(payload)
         code = Path(args.code).read_text(encoding="utf-8") if args.code else payload.get("code", "")
         result = verify_python(code, task)
-        print(json.dumps(result.__dict__, indent=2))
-        return 0
+        _emit(result.__dict__, args.output)
+        return 1 if args.fail_on_error and not result.passed else 0
     if args.cmd == "forge-demo":
-        _forge_demo()
+        _forge_demo(args.output)
         return 0
+    if args.cmd == "route":
+        route = route_task(args.prompt)
+        safety = classify_coding_safety(args.prompt)
+        return _emit(
+            {
+                "route": route.__dict__,
+                "safety": safety.__dict__,
+                "accepted": selective_accept(route.accepted, safety.allowed, route.confidence),
+            },
+            args.output,
+        )
+    if args.cmd == "estimate-model":
+        return _emit(estimate_dense_model(args.params).__dict__, args.output)
     return 2
 
 
-def _forge_demo() -> None:
+def _forge_demo(output: str | None = None) -> None:
     task = Task(
         task_id="demo_reverse",
         prompt="Implement reverse_words(s) returning words in reverse order.",
@@ -68,7 +91,24 @@ def _forge_demo() -> None:
 
     group = rollout_python_task(task, student, k=2)
     repairs = repair_failures(group, repair, rounds=1)
-    print(json.dumps(build_round_artifacts(group, repairs), indent=2, default=str))
+    artifacts = build_round_artifacts(group, repairs)
+    if output:
+        save_round_artifacts(output, artifacts)
+        print(str(Path(output)))
+    else:
+        print(dumps_json(artifacts))
+
+
+def _emit(payload: object, output: str | None = None) -> int:
+    if output:
+        write_json(output, payload)
+    print(dumps_json(payload))
+    return 0
+
+
+def _python_task_from_payload(payload: dict) -> PythonTask:
+    allowed = set(PythonTask.__dataclass_fields__)
+    return PythonTask(**{k: v for k, v in payload.items() if k in allowed})
 
 
 if __name__ == "__main__":

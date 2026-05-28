@@ -50,6 +50,22 @@ You can also use the installed console command:
 dr-opic forge-demo
 ```
 
+Write a stable artifact bundle:
+
+```bash
+python -m dr_opic.cli --output outputs\demo forge-demo
+```
+
+This creates:
+
+```text
+round_summary.json
+student_rollouts.jsonl
+verified_repairs.jsonl
+learnable_winner.json
+delta_spans.json
+```
+
 ## Verify A Python Candidate
 
 Create a task JSON:
@@ -89,6 +105,20 @@ This prints Jeffreys-smoothed pass rate and the ZPD weight:
 ```text
 p_tilde = (passes + 0.5) / (samples + 1)
 w_zpd = 4 * p_tilde * (1 - p_tilde)
+```
+
+## Route And Estimate
+
+Route a prompt through the domain and safety checks:
+
+```bash
+python -m dr_opic.cli route "Fix this Python traceback and add pytest coverage"
+```
+
+Estimate dense model memory and per-token compute:
+
+```bash
+python -m dr_opic.cli estimate-model --params 3.09e9
 ```
 
 ## Audit A JSONL Training File
@@ -132,6 +162,14 @@ Required preference fields:
 - `dr_opic.safety`: simple coding-safety acceptance helper.
 - `dr_opic.compression`: memory/compute estimates and retention gates.
 - `dr_opic.losses`: optional PyTorch losses for SFT, delta, DPO, and RLVR.
+
+More detail:
+
+- [Quickstart](docs/QUICKSTART.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+- [Math Notes](docs/MATH.md)
+- [Release Protocol](docs/RELEASE_PROTOCOL.md)
 
 ## Safety Scope
 
