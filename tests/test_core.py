@@ -82,6 +82,20 @@ def test_forge_artifacts_are_written(tmp_path):
     assert set(paths) == {"summary", "rollouts", "repairs", "winner", "delta"}
     assert json.loads((tmp_path / "round_summary.json").read_text(encoding="utf-8"))["task_id"] == "demo"
 
+    # Validate delta spans content
+    delta_path = paths["delta"]
+    delta_data = json.loads(delta_path.read_text(encoding="utf-8"))
+    assert len(delta_data) > 0, "delta_spans.json should not be empty"
+    assert any("' '.join(reversed(s.split()))" in span["fixed_text"] for span in delta_data), \
+        "delta spans should contain the repair logic"
+
+    # Validate verified repairs content
+    repairs_path = paths["repairs"]
+    repairs_lines = repairs_path.read_text(encoding="utf-8").strip().splitlines()
+    repairs_data = [json.loads(line) for line in repairs_lines]
+    assert any("' '.join(reversed(s.split()))" in r.get("code", "") for r in repairs_data), \
+        "verified repairs should contain the repair code"
+
 
 def test_write_jsonl_and_cli_output(tmp_path):
     output = tmp_path / "zpd.json"
