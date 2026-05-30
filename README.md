@@ -170,6 +170,7 @@ More detail:
 - [API Reference](docs/API.md)
 - [Math Notes](docs/MATH.md)
 - [Release Protocol](docs/RELEASE_PROTOCOL.md)
+- [Notebook Tutorial](notebooks/DR_OPIC_Tutorial.ipynb)
 
 ## Safety Scope
 
