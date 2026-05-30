@@ -121,6 +121,18 @@ Estimate dense model memory and per-token compute:
 python -m dr_opic.cli estimate-model --params 3.09e9
 ```
 
+Build a counterfactual delta-span record:
+
+```bash
+python -m dr_opic.cli delta --task-id reverse_words --failed examples\reverse_words_bad.py --fixed examples\reverse_words_good.py
+```
+
+Run the verifier-ZPD scheduler demo:
+
+```bash
+python -m dr_opic.cli schedule-demo
+```
+
 ## Audit A JSONL Training File
 
 The repo does not ship training data. To audit an SFT JSONL stored outside this
@@ -155,6 +167,7 @@ Required preference fields:
 - `dr_opic.forge`: student-first rollout, repair, and artifact construction.
 - `dr_opic.selectors`: verified learnable-winner selection.
 - `dr_opic.delta`: token/line delta spans between failed and fixed code.
+- `dr_opic.scheduler`: verifier-ZPD curriculum buckets and train-mix weights.
 - `dr_opic.preference`: scalar helpers for verified DPO/ORPO-style pairs.
 - `dr_opic.datasets`: JSONL schema and quality audit helpers.
 - `dr_opic.replay`: deterministic replay certification.

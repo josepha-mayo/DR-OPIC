@@ -47,6 +47,34 @@ from dr_opic.forge import save_round_artifacts
 save_round_artifacts("outputs/round_001", artifacts)
 ```
 
+## Counterfactual Delta Spans
+
+```python
+from dr_opic.delta import build_delta_example
+
+failed = "def f(x):\n    return x\n"
+fixed = "def f(x):\n    return x + 1\n"
+example = build_delta_example("inc", failed, fixed)
+print(example.positive_token_indices)
+print(example.negative_token_indices)
+```
+
+`positive_token_indices` are fixed-code tokens to increase. `negative_token_indices`
+are failed-code tokens that can be subtracted relative to a reference model.
+
+## Verifier-ZPD Scheduling
+
+```python
+from dr_opic.scheduler import schedule_group, training_mix
+
+scheduled = schedule_group(group, repairs)
+print(scheduled.bucket, scheduled.train_weight)
+print(training_mix([scheduled]))
+```
+
+Buckets are `mastered`, `zpd_train`, `repair_train`, `decompose`, `eval_only`,
+and `discard`.
+
 ## Route And Safety Check
 
 ```python

@@ -14,6 +14,7 @@ Task
   -> repair failed attempts
   -> verify repairs
   -> select learnable winner
+  -> schedule into mastered/ZPD/repair/decompose buckets
   -> emit JSON/JSONL artifacts
   -> train with SFT, delta, preference, or RLVR losses
 ```
@@ -43,6 +44,14 @@ rough complexity, dependency burden, length, and optional model logprob.
 `delta.py`
 
 Builds token-level and line-level spans between failed code and fixed code.
+Also emits positive fixed-token indices and negative failed-token indices for
+counterfactual delta-span subtraction.
+
+`scheduler.py`
+
+Turns rollout groups and repairs into verifier-ZPD curriculum decisions. It
+decides whether a task is mastered, useful for ZPD training, useful for repair
+training, too hard and needs decomposition, eval-only, or unreliable.
 
 `losses.py`
 

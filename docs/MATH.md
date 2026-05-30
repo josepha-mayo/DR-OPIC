@@ -136,6 +136,41 @@ L_delta =
 This increases corrected spans and subtracts only the wrong local spans, avoiding
 whole-program punishment when most code is shared and correct.
 
+The implementation exposes:
+
+```text
+D+ = fixed-code token indices touched by insert/replace
+D- = failed-code token indices touched by delete/replace
+shared_ratio = shared tokens / max(len(failed), len(fixed))
+edit_ratio = 1 - shared_ratio
+```
+
+These fields let a trainer build positive masks for corrected spans and negative
+masks for failing spans without penalizing shared code.
+
+## Verifier-ZPD Scheduler
+
+For each rollout group, the scheduler emits a bucket:
+
+| Bucket | Condition |
+| --- | --- |
+| `mastered` | smoothed pass rate is high |
+| `zpd_train` | pass rate is neither too low nor mastered |
+| `repair_train` | the student failed but a close verified repair exists |
+| `decompose` | task is too hard and no close fix was found |
+| `eval_only` | split is not train |
+| `discard` | verifier reliability is too low |
+
+Training weight combines:
+
+```text
+w = w_zpd * q_failure_balance * q_novelty * q_repair
+```
+
+`repair_train` is the important DR-OPIC bucket: it captures tasks where the
+student cannot solve the task alone yet, but a verified fix is close enough to
+the student's failed state to be learnable.
+
 ## Verified Preference
 
 Use preference only when pairs are execution-grounded:

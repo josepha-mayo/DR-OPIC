@@ -2,11 +2,12 @@ import json
 
 from dr_opic.artifacts import write_jsonl
 from dr_opic.cli import main
-from dr_opic.delta import token_delta_spans
+from dr_opic.delta import build_delta_example, token_delta_spans
 from dr_opic.forge import build_round_artifacts, repair_failures, rollout_python_task, save_round_artifacts
 from dr_opic.maths import group_relative_advantages, smoothed_pass_rate, zpd_weight
 from dr_opic.routing import route_task
 from dr_opic.safety import classify_coding_safety, selective_accept
+from dr_opic.scheduler import schedule_group, training_mix
 from dr_opic.selectors import select_learnable_winner
 from dr_opic.schemas import Candidate, Task
 from dr_opic.verifier import PythonTask, static_check_python, verify_python
@@ -46,6 +47,9 @@ def test_delta_spans_find_local_change():
     spans = token_delta_spans("return x", "return x + 1")
     assert spans
     assert any("+ 1" in span.fixed_text for span in spans)
+    example = build_delta_example("t", "return x", "return x + 1")
+    assert example.positive_token_indices
+    assert 0 < example.edit_token_ratio < 1
 
 
 def test_route_and_safety_acceptance():
@@ -83,6 +87,28 @@ def test_forge_artifacts_are_written(tmp_path):
     assert json.loads((tmp_path / "round_summary.json").read_text(encoding="utf-8"))["task_id"] == "demo"
 
 
+def test_scheduler_marks_close_verified_repair():
+    task = Task(
+        task_id="demo",
+        prompt="Implement reverse_words(s).",
+        entrypoint="reverse_words",
+        tests="assert reverse_words('one two') == 'two one'",
+    )
+
+    def student(_: Task, __: int) -> str:
+        return "def reverse_words(s):\n    return s\n"
+
+    def repair(_: Task, __: Candidate, ___: int) -> str:
+        return "def reverse_words(s):\n    return ' '.join(reversed(s.split()))\n"
+
+    group = rollout_python_task(task, student, k=1)
+    repairs = repair_failures(group, repair)
+    scheduled = schedule_group(group, repairs)
+    assert scheduled.bucket == "repair_train"
+    assert scheduled.train_weight > 0
+    assert training_mix([scheduled])["selected_task_ids"] == ["demo"]
+
+
 def test_write_jsonl_and_cli_output(tmp_path):
     output = tmp_path / "zpd.json"
     assert main(["--output", str(output), "zpd", "--passes", "1", "--samples", "2"]) == 0
@@ -92,3 +118,5 @@ def test_write_jsonl_and_cli_output(tmp_path):
     rows_path = tmp_path / "rows.jsonl"
     write_jsonl(rows_path, [{"prompt": "Implement inc(x).", "response": "def inc(x):\n    return x + 1\n"}])
     assert main(["audit-jsonl", str(rows_path), "--schema", "sft"]) == 0
+    assert main(["delta", "--failed", "examples/reverse_words_bad.py", "--fixed", "examples/reverse_words_good.py"]) == 0
+    assert main(["schedule-demo"]) == 0
