@@ -70,10 +70,11 @@ def schedule_group(
         edit_ratio=edit_ratio,
         config=config,
     )
+    train_signature = signature if signature is not None else ""
     train_weight = _train_weight(
         bucket=bucket,
         base_zpd=base_zpd,
-        signature=signature,
+        signature=train_signature,
         failure_frequencies=failure_frequencies or Counter(),
         novelty=novelty,
         repair_passed=repair_passed,
@@ -104,7 +105,9 @@ def schedule_round(
     for group, _ in materialized:
         failure = _first_failure(group)
         if failure:
-            frequencies[error_signature(failure.observation)] += 1
+            sig = error_signature(failure.observation)
+            if sig:
+                frequencies[sig] += 1
     return [schedule_group(group, repairs, config=config, failure_frequencies=frequencies) for group, repairs in materialized]
 
 
