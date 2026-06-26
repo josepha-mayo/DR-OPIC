@@ -29,6 +29,6 @@ def dpo_loss_scalar(logit: float, beta: float = 0.1) -> float:
 
 
 def orpo_odds_ratio(chosen_logp: float, rejected_logp: float, eps: float = 1e-6) -> float:
-    pc = min(1.0 - eps, max(eps, math.exp(chosen_logp)))
-    pr = min(1.0 - eps, max(eps, math.exp(rejected_logp)))
+    pc = min(1.0 - eps, max(eps, math.exp(min(chosen_logp, 88.0))))
+    pr = min(1.0 - eps, max(eps, math.exp(min(rejected_logp, 88.0))))
     return math.log(pc / (1.0 - pc)) - math.log(pr / (1.0 - pr))
