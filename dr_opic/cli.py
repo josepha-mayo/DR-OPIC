@@ -53,7 +53,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "zpd":
         return _emit({"p_tilde": smoothed_pass_rate(args.passes, args.samples), "zpd_weight": zpd_weight(args.passes, args.samples)}, args.output)
     if args.cmd == "audit-jsonl":
-        rows = read_jsonl(args.path)
+        def _stream_jsonl(path):
+            with open(path, encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        yield json.loads(line)
+        rows = _stream_jsonl(args.path)
         return _emit(audit_rows(rows, args.schema), args.output)
     if args.cmd == "verify-python":
         payload = json.loads(Path(args.task_json).read_text(encoding="utf-8"))
