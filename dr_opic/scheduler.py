@@ -58,7 +58,12 @@ def schedule_group(
     selected_passed = bool(winner and winner.passed)
     selector_gap = int(any(c.passed for c in group.candidates)) - int(selected_passed)
     signature = error_signature(failure.observation) if failure else None
-    edit_ratio = normalized_edit_distance(failure.code, winner.code) if failure and winner else None
+    if failure and winner:
+        edit_ratio = normalized_edit_distance(failure.code, winner.code)
+    elif winner:
+        edit_ratio = 0.0
+    else:
+        edit_ratio = None
     repair_passed = any(c.passed for c in repairs)
 
     bucket, reason = _bucket(
